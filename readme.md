@@ -11,17 +11,16 @@ caused by sliding the camera on rails or ship movement. If this object includes
 a color chart any variable intensity from light flickering can also be corrected.
 
 REQUIRED INPUT VARIABLES
-================================
+
 'folder' | string containing folder name with image sequence (uint8 or uint16).
-%
+
 OUTPUT VARIABLES
-================================
+
 'P' | Panorama of aligned images as either uint8 or uint16 depending on input images.
 'imgs' | cell array of all images after color adjustment.
 'Charts' | cell arry of all color charts extracted from images after color adjustment.
-%
+
 OPTIONAL ARGUMENT / VALUE PAIRS
-================================
 
 'alt' | [1,0] Default: 0
 Alternate translation method is performed if 1. If tilt correction is performed,
@@ -50,7 +49,7 @@ Default method: SURF points are inversely transformed using tilt correction matr
 Alternate method: After tilt correction of images, a new set of SURF points are obtained
 
 REQUIRED ENVIRONMENT
-================================
+
 MATLAB 2022b or newer (due to use of estgeotform2d)
 	replace with estimateGeometricTransform for older versions
 Computer Vision Toolbox
@@ -58,7 +57,6 @@ Image Processing Toolbox
 Statistics and Machine Learning Toolbox
 
 EXAMPLES
-================================
 
 Disable color adjustment and tilt correction
 corealign('folder','color',0,'tilt',0);
