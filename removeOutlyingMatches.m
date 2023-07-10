@@ -26,7 +26,7 @@ distance_y_s = y1_s - y2_s;
 
 % remove outlying x distances
 
-% assuming the images are being take from the left to the right, moving distances should be positive
+% from left to the right, moving distances should be positive
 index = distance_x_m > 0;
 distance_x_m = distance_x_m(index);
 distance_y_m = distance_y_m(index);
@@ -44,7 +44,6 @@ distance_y_s = distance_y_s(index);
 if numel(find(index)) < 4
 	matchedPoints1_static_culled = matchedPoints1_static;
 	matchedPoints2_static_culled = matchedPoints2_static;
-	warning([num2str(numel(find(index))) ' static SURF points remaining after culling. None removed'])
 else
 	matchedPoints1_static_culled = matchedPoints1_static(index);
 	matchedPoints2_static_culled = matchedPoints2_static(index);
@@ -57,21 +56,17 @@ distance_y_med_m = prctile(distance_y_m,[50, 100*(1-erf(2/sqrt(2)))/2, 100-100*(
 index = distance_y_m > distance_y_med_m(2) & distance_y_m < distance_y_med_m(3);
 distance_x_m = distance_x_m(index);
 distance_y_m = distance_y_m(index);
-matchedPoints1_moving_culled = matchedPoints1_moving(index);
-matchedPoints2_moving_culled = matchedPoints2_moving(index);
+matchedPoints1_moving_culled = matchedPoints1_moving_culled(index);
+matchedPoints2_moving_culled = matchedPoints2_moving_culled(index);
 
 % y static
 distance_y_med_s = prctile(distance_y_s,[50, 100*(1-erf(2/sqrt(2)))/2, 100-100*(1-erf(2/sqrt(2)))/2]);
 index = distance_y_s > distance_y_med_s(2) & distance_y_s < distance_y_med_s(3);
 distance_x_s = distance_x_s(index);
 distance_y_s = distance_y_s(index);
-if numel(find(index)) < 4
-	matchedPoints1_static_culled = matchedPoints1_static;
-	matchedPoints2_static_culled = matchedPoints2_static;
-	warning([num2str(numel(find(index))) ' static SURF points remaining after culling. None removed'])
-else
-	matchedPoints1_static_culled = matchedPoints1_static(index);
-	matchedPoints2_static_culled = matchedPoints2_static(index);
+if numel(find(index)) > 4
+	matchedPoints1_static_culled = matchedPoints1_static_culled(index);
+	matchedPoints2_static_culled = matchedPoints2_static_culled(index);
 end
 
 % recalculate distances
