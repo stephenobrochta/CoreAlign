@@ -77,12 +77,12 @@ can be returned with varargout as a suggested starting location for manual cropp
 
 REQUIRED ENVIRONMENT 
 ================================ 
-MATLAB 2022b or newer (due to use of estgeotform2d) 
+1) MATLAB 2022b or newer (due to use of estgeotform2d) 
 	replace with estimateGeometricTransform for older versions 
 	Note that translation parameters are at different matrix indicies  
-Computer Vision Toolbox 
-Image Processing Toolbox 
-Statistics and Machine Learning Toolbox  
+2) Computer Vision Toolbox 
+3) Image Processing Toolbox 
+4) Statistics and Machine Learning Toolbox  
 
 EXAMPLES 
 ================================  
