@@ -68,9 +68,9 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % NOTE: the input parameter 'MaximumDistance' needs to be specified or the geometric transformation 
 % will likely fail because individual tick marks all contain similar features. Small changes to the
 % maximum distance yield slightly different results.
-% VARARGOUT USAGE:
+% VARARGOUT returns an 1x4 array with:
 % 1) estimated core length (cm)
-% 2) estimate top crop pixel
+% 2) estimate core right/left crop pixel
 % 3) estimated core top crop pixel
 % 4) estimated core bottom crop pixel
 % can be returned with varargout as a suggested starting location for manual cropping
@@ -106,7 +106,7 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % https://www.mathworks.com/help/gpucoder/ug/feature-extraction-using-surf.html
 % 
 % Adapted from an algorithm developed by Jan Moren.
-% S.P Obrochta 6/2023
+% S.P Obrochta 7/2023
 
 tic
 
