@@ -1,6 +1,6 @@
 function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,varargin)
 % 
-% [P,Pcrop,imgs,Charts,varargout] = corealign(folder,varargin)
+% [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,varargin)
 % 
 % This function aligns a sequence of overlapping images of sediment cores
 % using extracted Speeded Up Robust Feature (SURF) points. Features are matched
@@ -251,7 +251,7 @@ end
 if Crop
 	% First try and find the scale in the first image to index core top
 	disp('Finding core zero point in first image')
-	S = imread('~/Documents/MATLAB/CoreAlign/private/L5PxCM200.png');
+	S = imread('private/L5PxCM200.png');
 	ptsS = detectSURFFeatures(rgb2gray(S));
 	ptsI = detectSURFFeatures(rgb2gray(imgs{1}));
 	[featuresS,validPtsS] = extractFeatures(rgb2gray(S),ptsS);

@@ -1,5 +1,3 @@
-function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,varargin)  
-
 [P,Pcrop,imgs,Charts,varargout] = corealign(folder,varargin)  
 
 This function aligns a sequence of overlapping images of sediment cores 
