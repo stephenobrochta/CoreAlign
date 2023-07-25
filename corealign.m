@@ -119,12 +119,16 @@ Color = 1;
 Tilt = 1;
 Fig = 0;
 Crop = 0;
+Spos = 'top';
+ChartNum = 0;
 
 addParameter(p,'alt',Alt,@isnumeric);
 addParameter(p,'color',Color,@isnumeric);
 addParameter(p,'tilt',Tilt,@isnumeric);
 addParameter(p,'fig',Fig,@isnumeric);
 addParameter(p,'crop',Crop,@isnumeric);
+addParameter(p,'spos',Spos,@ischar);
+addParameter(p,'chartnum',ChartNum,@isnumeric);
 
 parse(p,varargin{:});
 Alt = p.Results.alt;
@@ -132,6 +136,8 @@ Color = p.Results.color;
 Tilt = p.Results.tilt;
 Fig = p.Results.fig;
 Crop = p.Results.crop;
+Spos = p.Results.spos;
+ChartNum = p.Results.chartnum;
 
 % alternate method not needed if no tilt correction
 if Tilt == 0
@@ -208,6 +214,9 @@ TformsS(1:numImages) = deal(projtform2d);
 % turn off geometric transformation warnings
 id = 'MATLAB:nearlySingularMatrix';
 
+% Keep track of the number of things that fail
+Failed = 0;
+
 % load images
 disp(folder)
 disp('Loading images')
@@ -238,6 +247,20 @@ for i = 1:length(orientation)
 	end
 end
 
+disp('Rotating all images based on angle between first and second image')
+% get angles for just the first pair
+[rotatepts1,rotatepts2,junk1,junk2] = getStaticMovingSURF(imgs{1},imgs{2},n,d);
+
+% Remove angles outside of 95.4 percentile range
+rotate_angle = removeOutlyingAngles(rotatepts1,rotatepts2,junk1,junk2);
+
+% Rotate all images the same amount based on the difference between the first and second image
+for i = 1:numImages
+	if i == 1, rotate_angle = rotate_angle(1) - 180; end
+	imgs{i} = imrotate(imgs{i},rotate_angle,'crop');
+	imageSizes(i,:) = size(imgs{1},1:2);
+end
+
 
 % 1. Autocrop - do this first so it errors out quickly
 
@@ -245,7 +268,7 @@ end
 % Cropping matches features between the first (core top) and last (core bottom) images
 % and templates stored in this functions "private" folder. Objects in the core photos 
 % must be identical to the templates.
-% Crop = 1 | crop top and bottom
+% Crop = 1 | crop top and bottom and outer scalebar edge
 % Crop = 2 | crop only bottom
 % Crop = 3 | crop only top and outer scalebar edge
 if Crop
@@ -286,8 +309,9 @@ if Crop
 	end
 	if ssim(S_extracted,S) < 0.5
 		Crop = 2;
-		disp('Failed to detect zero point. Cannot crop composite image to core top')
-		[ScaleRight,ScaleTop] = deal(1);
+		warning('Failed to detect zero point. Cannot crop composite image to core top')
+		[ScaleRight,ScaleEdge] = deal(1);
+		Failed = Failed + 1;
 	end
 
 	disp('Detecting core bottom block in last image')
@@ -368,32 +392,33 @@ if Crop
 	if ssim(T_extracted,T) < 0.5
 		if Crop == 2
 			Crop = 0;
-			disp('Also failed to find block. Not cropping image')
+			warning('Also failed to find block. Not cropping image')
 		else
 			Crop = 3;
-			disp('Failed to find core bottom. Cannot crop composite image to core bottom')
+			warning('Failed to find core bottom. Cannot crop composite image to core bottom')
 			CoreBottom = NaN;
 		end
+		Failed = Failed + 1;
 	end
 end
 
 % If core top and bottom were detected set indices in first and last image
-if Crop == 1
+if Crop == 1 || Crop ==  3
 	% transform matrix is relative to last image after slight rotation etc to match template
 	warning('off',id)
-	tform2inv = invert(TformBlock);
+	TformBlockinv = invert(TformBlock);
 	TformScaleinv = invert(TformScale);
 	warning('on',id)
 	ScaleRight = round(abs(TformScaleinv.A(1,3)));
-	ScaleTop = round(abs(TformScaleinv.A(2,3)));
+	ScaleEdge = round(abs(TformScaleinv.A(2,3)));
 
 	% Check block rotation
 	if abs(TformBlock.RotationAngle) > 90
 		% Block was rotated to match template so position is right side. Subtract template width
-		CoreBottom = round(abs(tform2inv.A(1,3))) - size(T,2);
+		CoreBottom = round(abs(TformBlockinv.A(1,3))) - size(T,2);
 	else
 		% Block not rotated so left side detected. Use as is
-		CoreBottom = round(abs(tform2inv.A(1,3)));
+		CoreBottom = round(abs(TformBlockinv.A(1,3)));
 	end
 end
 
@@ -415,7 +440,16 @@ if Color
 	% Find the chart that matches best with the the first image
 	[ChartPoints,ChartFeatures,ChartValidPoints,indexPairs,ChartMatchedPoints] = deal(cell(size(ChartTemplates)));
 	nMatched = zeros(size(ChartTemplates));
-	for i = 1:numel(ChartTemplates)
+	if ChartNum == 0
+		for i = 1:numel(ChartTemplates)
+			ChartPoints{i} = detectSURFFeatures(rgb2gray(ChartTemplates{i}));
+			[ChartFeatures{i},ChartValidPoints{i}] = extractFeatures(rgb2gray(ChartTemplates{i}),ChartPoints{i});
+			indexPairs{i} = matchFeatures(IFeatures,ChartFeatures{i});
+			ChartMatchedPoints{i} = ChartValidPoints{i}(indexPairs{i}(:,2));
+			nMatched(i) = ChartMatchedPoints{i}.Count;
+		end
+	else
+		i = ChartNum;
 		ChartPoints{i} = detectSURFFeatures(rgb2gray(ChartTemplates{i}));
 		[ChartFeatures{i},ChartValidPoints{i}] = extractFeatures(rgb2gray(ChartTemplates{i}),ChartPoints{i});
 		indexPairs{i} = matchFeatures(IFeatures,ChartFeatures{i});
@@ -432,7 +466,9 @@ if Color
 	% extract charts and calculate mean values
 	for i = 1:numImages
 		rng('default')
+		warning('off',id)
 		Charts{i} = imwarp(imgs{i},estgeotform2d(IMatched,ChartMatchedPoints,'similarity'),'OutputView',imref2d(size(ChartTemplates)),'fillvalues',0);
+		warning('on',id)
 
 		% Check if something was extracted
 		if max(Charts{i}(:)) == 0
@@ -444,14 +480,17 @@ if Color
 			IMatched = IValidPoints(IndexPairsNew(:,1));
 			ChartMatchedPoints = ChartValidPoints(IndexPairsNew(:,2));
 			rng('default')
+			warning('off',id)
 			Charts{i} = imwarp(imgs{i},estgeotform2d(IMatched,ChartMatchedPoints,'similarity'),'OutputView',imref2d(size(ChartTemplates)),'fillvalues',0);
+			warning('on',id)
 			if max(Charts{i}(:)) == 0
-				cmdstr = strrep(strjoin(["corealign(" folder ",'alt'," num2str(Alt) ",'color',0,'crop'," num2str(Crop) ",'fig'," num2str(Fig) ");"]),' ','');
-				warning(strjoin(["Still failed, skipping. Consider re-running as:" cmdstr]))
+				warning("Still failed, Colors cannot be adjusted.")
 				Color = 0;
+				Failed = Failed + 1;
 			break
 			end
 		end
+
 
 		% index of nonfill values
 		ChartIndex = Charts{i}(:,:,1) > 0 & Charts{i}(:,:,2) > 0 & Charts{i}(:,:,3) > 0;
@@ -464,32 +503,15 @@ if Color
 		B = Charts{i}(:,:,3);
 		RGB(i,3) = mean(B(ChartIndex));
 	end
-
-	
-	% index of the image with R, B and G channels closest to the median of all charts
-	[~,index] = min(sum(abs(median(RGB) - RGB),2));
-	disp(['Adjusting all images by RGB values from image closest to median intensity (' fnams{index} ')'])
-	
-	% calculate the correction but do the actual correction after alignment
-	RGBcorr = RGB - RGB(index,1);
 end
 
-
-% 3 rotation based on the angle between the first two images
-
-
-disp('Rotating all images based on angle between first and second image')
-% get angles for just the first pair
-[rotatepts1,rotatepts2,junk1,junk2] = getStaticMovingSURF(imgs{1},imgs{2},n,d);
-
-% Remove angles outside of 95.4 percentile range
-rotate_angle = removeOutlyingAngles(rotatepts1,rotatepts2,junk1,junk2);
-
-% Rotate all images the same amount based on the difference between the first and second image
-for i = 1:numImages
-	if i == 1, rotate_angle = rotate_angle(1) - 180; end
-	imgs{i} = imrotate(imgs{i},rotate_angle,'crop');
-	imageSizes(i,:) = size(imgs{1},1:2);
+if Color
+	% index of the image with R, B and G channels closest to the median of all charts
+	[~,chrt_index] = min(sum(abs(median(RGB) - RGB),2));
+	disp(['Adjusting all images by RGB values from image closest to median intensity (' fnams{chrt_index} ')'])
+	
+	% calculate the correction but do the actual correction after alignment
+	RGBcorr = RGB - RGB(chrt_index,1);
 end
 
 
@@ -571,21 +593,26 @@ for i = 1:numImages - 1
 			disp(['     Median movement distance (pixels): ' num2str(distance_x_med_s(i,1)) ' (x); ' ...
 			num2str(distance_y_med_s(i,1)) ' (y); '])
 			rng('default')
+			warning('off',id)
 			TformsS(i + 1) = estgeotform2d(matchedPoints2_static_culled{i},matchedPoints1_static_culled{i},'projective');
 			outputView = imref2d(size(imgs{i + 1}));
 			imgs{i + 1} = imwarp(imgs{i + 1}, TformsS(i + 1),'outputview',outputView);
+			warning('on',id)
 		end
 	end
 
 	if ~Alt
 		UV1{i} = [matchedPoints1_moving_culled{i}.Location(:,1), matchedPoints1_moving_culled{i}.Location(:,2)];
 		XY2 = [matchedPoints2_moving_culled{i}.Location(:,1), matchedPoints2_moving_culled{i}.Location(:,2)];
+		warning('off',id)
 		UV2{i} = transformPointsForward(TformsS(i + 1),XY2);
-		
+		warning('on',id)
+
 		% Check points
 		if isempty(UV1{i}) || isempty(UV2{i})
 			warning(['Unable to find valid match between images ' fnams{i} ' and ' fnams{i + 1} '. Switching to alternate alignment method '])
 			Alt = 1;
+			Failed = Failed + 1;
 		end
 	end
 
@@ -790,7 +817,7 @@ for i = 1:numImages - 1
 				delete(H10)
 			end
 			axes('units','pixels','position',[l + 2.25 * w, b + h * 1.2, w, h]);
-			polarhistogram(deg2rad(angles_s),'facecolor','c','facealpha',1,'edgecolor','k');
+			polarhistogram(deg2rad(angles_s),'facecolor','c','facealpha',1,'edgecolor','c');
 			H10 = gca;
 			set(H10,axisargs{:})
 			H10.RColor = 'w';
@@ -848,6 +875,10 @@ for i = 1:numImages - 1
 				set(H11,axisargs{:},'xtick',1:numImages,'xlim',[1 numImages],'ticklength',TickLength,'xcolor','w','ycolor','w')
 				title('Chart color values','color','w')
 				ylabel('Color')
+				line([chrt_index chrt_index],ylim,'linewidth',1,'color','w')
+				line(xlim,[RGB(chrt_index,1) RGB(chrt_index,1)],'linewidth',1,'color',[1,.8,.8])
+				line(xlim,[RGB(chrt_index,2) RGB(chrt_index,2)],'linewidth',1,'color',[.8,1,.8])
+				line(xlim,[RGB(chrt_index,3) RGB(chrt_index,3)],'linewidth',1,'color',[.8,.8,1])
 				drawnow
 
 				% histogram
@@ -942,11 +973,22 @@ if Crop
 	CoreBottom = size(P,2) - (size(imgs{end},2) - CoreBottom);
 	
 	% crop top and bottom of core
-	Pcrop = P(ScaleTop:end,ScaleRight:CoreBottom,:);
+	if strcmp(Spos,'top') && (Crop == 1 || Crop == 3)
+		% crop from the scale edge downward
+		Pcrop = P(ScaleEdge:end,ScaleRight:CoreBottom,:);
+	elseif strcmp(Spos,'bot') && (Crop == 1 || Crop == 3)
+		% crop from the scale edge upward
+		Pcrop = P(1:ScaleEdge,ScaleRight:CoreBottom,:);
+	else
+		% Just the bottom (ScaleRight = 1)
+		Pcrop = P(:,ScaleRight:CoreBottom,:);
+	end
 
 	% Isolate scale to make extraction more reliable
 	Scale_extracted = Pcrop(1:size(S,1),:,:);
+end
 
+if Crop == 1
 	% extract scale
 	disp('Extracting scalebar to estimate core length')
 	Scale = imread('private/L109_3PxCM200.png');
@@ -971,7 +1013,6 @@ if Crop
 		D = matchedI1.Location(inlierIdx,:) - matchedScale.Location(inlierIdx,:);
 		D = hypot(D(:,1),D(:,2));
 		while ssim(Scale_extracted,Scale) < 0.3 || sum(inlierIdx) == 0
-			disp(round(MaxD))
 			warning('off',id)
 			[TformFullScale,inlierIdx,~] = estgeotform2d(matchedI1,matchedScale,'similarity','MaxDistance',MaxD);
 			Scale_extracted = imwarp(Pcrop,TformFullScale,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -985,7 +1026,7 @@ if Crop
 	if ssim(Scale_extracted,Scale) < 0.3 || sum(inlierIdx) == 0
 		disp('Failed to extract scalebar. Not estimating core length')
 		CoreLength = NaN;
-		varargout = {[CoreLength,ScaleTop,ScaleRight,CoreBottom]};
+		varargout = {[CoreLength,ScaleEdge,ScaleRight,CoreBottom]};
 	else
 		% Estimate Length
 		Black = Scale_extracted(:,:,1) == 0 & Scale_extracted(:,:,2) == 0 & Scale_extracted(:,:,3) == 0;
@@ -995,8 +1036,26 @@ if Crop
 		end
 		CoreLength = max(index) / 200;
 		disp(['Estimated core length: ' num2str(CoreLength) ' cm'])
-		varargout = {[CoreLength,ScaleTop,ScaleRight,CoreBottom]};	
+		varargout = {[CoreLength,ScaleEdge,ScaleRight,CoreBottom]};	
 	end
+end
+
+% Variables related to cropping might not be assigned
+if ~exist('Pcrop','var')
+	Pcrop = [];
+end
+if ~exist('varargout','var')
+	varargout = {[]};
+end
+if ~exist('Scale_extracted','var')
+	Scale_extracted = [];
+end
+
+if Failed > 0
+	cmdstr = strrep(strjoin(["corealign(" "'" folder "'" ",'alt'," num2str(Alt) ",'color',0,'crop'," num2str(Crop) ",'fig'," num2str(Fig) ");"]),' ','');
+	disp([num2str(Failed) ' Detection(s) failed. Core not aligned according to input parameters'])
+	disp('For efficiency, use the below command if re-running')
+	disp(cmdstr)
 end
 
 if Fig
