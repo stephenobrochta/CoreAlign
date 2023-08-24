@@ -223,7 +223,7 @@ disp('Loading images')
 imgs = readall(imds);
 
 
-% 0 photograph rotation
+% 1 photograph rotation
 
 
 % Confirm exif orientation is correctly set
@@ -262,168 +262,7 @@ for i = 1:numImages
 end
 
 
-% 1. Autocrop - do this first so it errors out quickly
-
-
-% Cropping matches features between the first (core top) and last (core bottom) images
-% and templates stored in this functions "private" folder. Objects in the core photos 
-% must be identical to the templates.
-% Crop = 1 | crop top and bottom and outer scalebar edge
-% Crop = 2 | crop only bottom
-% Crop = 3 | crop only top and outer scalebar edge
-if Crop
-	% First try and find the scale in the first image to index core top
-	disp('Finding core zero point in first image')
-	S = imread('private/L5PxCM200.png');
-	ptsS = detectSURFFeatures(rgb2gray(S));
-	ptsI = detectSURFFeatures(rgb2gray(imgs{1}));
-	[featuresS,validPtsS] = extractFeatures(rgb2gray(S),ptsS);
-	[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{1}),ptsI);
-	indexPairsI = matchFeatures(featuresI,featuresS);
-	matchedI = validPtsI(indexPairsI(:,1));
-	matchedS = validPtsS(indexPairsI(:,2));
-	rng('default')
-	warning('off',id)
-	[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity');
-	outputView = imref2d(size(S));
-	S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
-	warning('on',id)
-	% check if extraction worked and reduce distance
-	if ssim(S_extracted,S) < 0.5 
-		disp('Zero point not detected Reducing maximum distance.')
-		D = matchedI.Location - matchedS.Location(:,2);
-		D = hypot(D(:,1),D(:,2));
-		MaxD = max(D);
-		while ssim(S_extracted,S) < 0.5
-			warning('off',id)
-			[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity','MaxD',MaxD);
-			S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
-			warning('on',id)
-			MaxD = MaxD - 100;
-			
-			% give up at some point
-			if MaxD < 0
-				break
-			end
-		end
-	end
-	if ssim(S_extracted,S) < 0.5
-		Crop = 2;
-		warning('Failed to detect zero point. Cannot crop composite image to core top')
-		[ScaleRight,ScaleEdge] = deal(1);
-		Failed = Failed + 1;
-	end
-
-	disp('Detecting core bottom block in last image')
-	T = imread('private/CoreBottomTarget.JPG');
-	ptsT = detectSURFFeatures(rgb2gray(T));
-	ptsI = detectSURFFeatures(rgb2gray(imgs{end}));
-	[featuresT,validPtsT] = extractFeatures(rgb2gray(T),ptsT);
-	[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{end}),ptsI);
-	indexPairsI = matchFeatures(featuresI,featuresT);
-	matchedI = validPtsI(indexPairsI(:,1));
-	matchedT = validPtsT(indexPairsI(:,2));
-	
-	rng('default')
-	% 3rd output is status and when output 'estgeotform2d' won't error out
-	warning('off',id)
-	[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity');
-	outputView = imref2d(size(T));
-	T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
-	warning('on',id)
-	% check if extraction worked and reduce distance
-	if ssim(T_extracted,T) < 0.5 
-		disp('Block not detected Reducing maximum distance.')
-		D = matchedI.Location - matchedT.Location(:,2);
-		D = hypot(D(:,1),D(:,2));
-		MaxD = max(D);
-		while ssim(T_extracted,T) < 0.5 
-			warning('off',id)
-			[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
-			T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
-			warning('on',id)
-			MaxD = MaxD - 100;
-			
-			% give up at some point
-			if MaxD < 0
-				break
-			end
-		end
-	end
-
-	% rotate and try again
-	if ssim(T_extracted,T) < 0.5 
-		disp('Block not detected. Rotating')
-		T = imrotate(T,180);
-		ptsT = detectSURFFeatures(rgb2gray(T));
-		ptsI = detectSURFFeatures(rgb2gray(imgs{end}));
-		[featuresT,validPtsT] = extractFeatures(rgb2gray(T),ptsT);
-		[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{end}),ptsI);
-		indexPairsI = matchFeatures(featuresI,featuresT);
-		matchedI = validPtsI(indexPairsI(:,1));
-		matchedT = validPtsT(indexPairsI(:,2));
-		rng('default')
-		warning('off',id)
-		[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity');
-		outputView = imref2d(size(T));
-		T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
-		warning('on',id)
-
-		% check if extraction worked and reduce distance
-		if ssim(T_extracted,T) < 0.5 
-			disp('Block not detected Reducing maximum distance.')
-			D = matchedI.Location - matchedT.Location(:,2);
-			D = hypot(D(:,1),D(:,2));
-			MaxD = max(D);
-			while ssim(T_extracted,T) < 0.5
-				warning('off',id)
-				[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
-				T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
-				warning('on',id)
-				MaxD = MaxD - 100;
-				
-				% give up at some point
-				if MaxD < 0
-					break
-				end
-			end
-		end
-	end
-	if ssim(T_extracted,T) < 0.5
-		if Crop == 2
-			Crop = 0;
-			warning('Also failed to find block. Not cropping image')
-		else
-			Crop = 3;
-			warning('Failed to find core bottom. Cannot crop composite image to core bottom')
-			CoreBottom = NaN;
-		end
-		Failed = Failed + 1;
-	end
-end
-
-% If core top and bottom were detected set indices in first and last image
-if Crop == 1 || Crop ==  3
-	% transform matrix is relative to last image after slight rotation etc to match template
-	warning('off',id)
-	TformBlockinv = invert(TformBlock);
-	TformScaleinv = invert(TformScale);
-	warning('on',id)
-	ScaleRight = round(abs(TformScaleinv.A(1,3)));
-	ScaleEdge = round(abs(TformScaleinv.A(2,3)));
-
-	% Check block rotation
-	if abs(TformBlock.RotationAngle) > 90
-		% Block was rotated to match template so position is right side. Subtract template width
-		CoreBottom = round(abs(TformBlockinv.A(1,3))) - size(T,2);
-	else
-		% Block not rotated so left side detected. Use as is
-		CoreBottom = round(abs(TformBlockinv.A(1,3)));
-	end
-end
-
-
-% 2 color adjustment
+% 2 get color adjustment values
 
 
 % First get the color adjustment data and save for the last step because it alters detected features.
@@ -515,7 +354,7 @@ if Color
 end
 
 
-% 4 Detect SURF points
+% 3 Detect SURF points, perform tilt correction, and calculate translation distances
 
 
 if Fig
@@ -584,6 +423,8 @@ for i = 1:numImages - 1
 	matchedPoints1_static_culled{i}, matchedPoints2_static_culled{i});
 
 	disp(['Image pair ' num2str(i) '/' num2str(numImages - 1) ': ' fnams{i} ' / ' fnams{i + 1}])
+
+	% tilt correction
 	if Tilt
 		if matchedPoints1_static_culled{i}.Count < 4
 			warning('Too few SURF points for geometric transformation')
@@ -901,7 +742,7 @@ for i = 1:numImages - 1
 end
 
 
-% 2. color adjustment. Apply the color correction after detecing all SURF points for reproducibility
+% 4. Apply the color correction after detecing all SURF points for reproducibility
 
 
 disp('Creating composite image')
@@ -917,7 +758,7 @@ if Color
 end
 
 
-% 5. Calculate translation distances and build panorama
+% 5. Calculate image overlaps and positions then build panorama
 
 
 for i = 2:length(ypos)
@@ -965,7 +806,168 @@ for i = 2:numel(imgs)
 end
 
 
-% 6. Segment the core from background
+% 6. Determine locations to crop core top and bottom
+
+
+% Cropping matches features between the first (core top) and last (core bottom) images
+% and templates stored in this functions "private" folder. Objects in the core photos 
+% must be identical to the templates.
+% Crop = 1 | crop top and bottom and outer scalebar edge
+% Crop = 2 | crop only bottom
+% Crop = 3 | crop only top and outer scalebar edge
+if Crop
+	% First try and find the scale in the first image to index core top
+	disp('Finding core zero point in first image')
+	S = imread('private/L5PxCM200.png');
+	ptsS = detectSURFFeatures(rgb2gray(S));
+	ptsI = detectSURFFeatures(rgb2gray(imgs{1}));
+	[featuresS,validPtsS] = extractFeatures(rgb2gray(S),ptsS);
+	[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{1}),ptsI);
+	indexPairsI = matchFeatures(featuresI,featuresS);
+	matchedI = validPtsI(indexPairsI(:,1));
+	matchedS = validPtsS(indexPairsI(:,2));
+	rng('default')
+	warning('off',id)
+	[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity');
+	outputView = imref2d(size(S));
+	S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
+	warning('on',id)
+	% check if extraction worked and reduce distance
+	if ssim(S_extracted,S) < 0.5 
+		disp('Zero point not detected Reducing maximum distance.')
+		D = matchedI.Location - matchedS.Location(:,2);
+		D = hypot(D(:,1),D(:,2));
+		MaxD = max(D);
+		while ssim(S_extracted,S) < 0.5
+			warning('off',id)
+			[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity','MaxD',MaxD);
+			S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
+			warning('on',id)
+			MaxD = MaxD - 100;
+			
+			% give up at some point
+			if MaxD < 0
+				break
+			end
+		end
+	end
+	if ssim(S_extracted,S) < 0.5
+		Crop = 2;
+		warning('Failed to detect zero point. Cannot crop composite image to core top')
+		[ScaleRight,ScaleEdge] = deal(1);
+		Failed = Failed + 1;
+	end
+
+	disp('Detecting core bottom block in last image')
+	T = imread('private/CoreBottomTarget.JPG');
+	ptsT = detectSURFFeatures(rgb2gray(T));
+	ptsI = detectSURFFeatures(rgb2gray(imgs{end}));
+	[featuresT,validPtsT] = extractFeatures(rgb2gray(T),ptsT);
+	[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{end}),ptsI);
+	indexPairsI = matchFeatures(featuresI,featuresT);
+	matchedI = validPtsI(indexPairsI(:,1));
+	matchedT = validPtsT(indexPairsI(:,2));
+	
+	rng('default')
+	% 3rd output is status and when output 'estgeotform2d' won't error out
+	warning('off',id)
+	[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity');
+	outputView = imref2d(size(T));
+	T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
+	warning('on',id)
+	% check if extraction worked and reduce distance
+	if ssim(T_extracted,T) < 0.5 
+		disp('Block not detected Reducing maximum distance.')
+		D = matchedI.Location - matchedT.Location(:,2);
+		D = hypot(D(:,1),D(:,2));
+		MaxD = max(D);
+		while ssim(T_extracted,T) < 0.5 
+			warning('off',id)
+			[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
+			T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
+			warning('on',id)
+			MaxD = MaxD - 100;
+			
+			% give up at some point
+			if MaxD < 0
+				break
+			end
+		end
+	end
+
+	% rotate and try again
+	if ssim(T_extracted,T) < 0.5 
+		disp('Block not detected. Rotating')
+		T = imrotate(T,180);
+		ptsT = detectSURFFeatures(rgb2gray(T));
+		ptsI = detectSURFFeatures(rgb2gray(imgs{end}));
+		[featuresT,validPtsT] = extractFeatures(rgb2gray(T),ptsT);
+		[featuresI,validPtsI] = extractFeatures(rgb2gray(imgs{end}),ptsI);
+		indexPairsI = matchFeatures(featuresI,featuresT);
+		matchedI = validPtsI(indexPairsI(:,1));
+		matchedT = validPtsT(indexPairsI(:,2));
+		rng('default')
+		warning('off',id)
+		[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity');
+		outputView = imref2d(size(T));
+		T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
+		warning('on',id)
+
+		% check if extraction worked and reduce distance
+		if ssim(T_extracted,T) < 0.5 
+			disp('Block not detected Reducing maximum distance.')
+			D = matchedI.Location - matchedT.Location(:,2);
+			D = hypot(D(:,1),D(:,2));
+			MaxD = max(D);
+			while ssim(T_extracted,T) < 0.5
+				warning('off',id)
+				[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
+				T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
+				warning('on',id)
+				MaxD = MaxD - 100;
+				
+				% give up at some point
+				if MaxD < 0
+					break
+				end
+			end
+		end
+	end
+	if ssim(T_extracted,T) < 0.5
+		if Crop == 2
+			Crop = 0;
+			warning('Also failed to find block. Not cropping image')
+		else
+			Crop = 3;
+			warning('Failed to find core bottom. Cannot crop composite image to core bottom')
+			CoreBottom = NaN;
+		end
+		Failed = Failed + 1;
+	end
+end
+
+% If core top and bottom were detected set indices in first and last image
+if Crop == 1 || Crop ==  3
+	% transform matrix is relative to last image after slight rotation etc to match template
+	warning('off',id)
+	TformBlockinv = invert(TformBlock);
+	TformScaleinv = invert(TformScale);
+	warning('on',id)
+	ScaleRight = round(abs(TformScaleinv.A(1,3)));
+	ScaleEdge = round(abs(TformScaleinv.A(2,3)));
+
+	% Check block rotation
+	if abs(TformBlock.RotationAngle) > 90
+		% Block was rotated to match template so position is right side. Subtract template width
+		CoreBottom = round(abs(TformBlockinv.A(1,3))) - size(T,2);
+	else
+		% Block not rotated so left side detected. Use as is
+		CoreBottom = round(abs(TformBlockinv.A(1,3)));
+	end
+end
+
+
+% 7. Segment the core from background
 
 
 if Crop
