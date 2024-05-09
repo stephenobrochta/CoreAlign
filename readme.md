@@ -14,6 +14,11 @@ REQUIRED INPUT VARIABLES
 ================================ 
 'folder' | string containing folder name with image sequence (uint8 or uint16).  
 
+Optional INPUT VARIABLES
+================================
+
+CoreDims | table containing cropping pixel locations and estimated core length
+
 OUTPUT VARIABLES 
 ================================ 
 'P' | Panorama of aligned images as either uint8 or uint16 depending on input images. 
@@ -66,7 +71,7 @@ The scale template must be as long or longer than the core.
 NOTE: the input parameter 'MaximumDistance' needs to be specified or the geometric transformation  
 will likely fail because individual tick marks all contain similar features. Small changes to the 
 maximum distance yield slightly different results. 
-VARARGOUT returns an 1x4 array with: 
+VARARGOUT returns an 1x4 table with: 
 1) estimated core length (cm) 
 2) estimate core right/left crop pixel 
 3) estimated core top crop pixel 

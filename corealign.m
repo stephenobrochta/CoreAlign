@@ -16,6 +16,11 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % ================================
 % 'folder' | string containing folder name with image sequence (uint8 or uint16).
 %
+% Optional INPUT VARIABLES
+% ================================
+
+% CoreDims | table containing cropping pixel locations and estimated core length
+
 % OUTPUT VARIABLES
 % ================================
 % 'P' | Panorama of aligned images as either uint8 or uint16 depending on input images.
@@ -68,7 +73,7 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % NOTE: the input parameter 'MaximumDistance' needs to be specified or the geometric transformation 
 % will likely fail because individual tick marks all contain similar features. Small changes to the
 % maximum distance yield slightly different results.
-% VARARGOUT returns an 1x4 array with:
+% VARARGOUT returns an 1x4 table with:
 % 1) estimated core length (cm)
 % 2) estimate core right/left crop pixel
 % 3) estimated core top crop pixel
@@ -833,12 +838,12 @@ if Crop
 	S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
 	warning('on',id)
 	% check if extraction worked and reduce distance
-	if ssim(S_extracted,S) < 0.5 
+	if ssim(S_extracted,S) < 0.55 
 		disp('Zero point not detected Reducing maximum distance.')
 		D = matchedI.Location - matchedS.Location(:,2);
 		D = hypot(D(:,1),D(:,2));
 		MaxD = max(D);
-		while ssim(S_extracted,S) < 0.5
+		while ssim(S_extracted,S) < 0.55
 			warning('off',id)
 			[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity','MaxD',MaxD);
 			S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -851,7 +856,8 @@ if Crop
 			end
 		end
 	end
-	if ssim(S_extracted,S) < 0.5
+	imshow(S_extracted), pause
+	if ssim(S_extracted,S) < 0.55
 		Crop = 2;
 		warning('Failed to detect zero point. Cannot crop composite image to core top')
 		[ScaleRight,ScaleEdge] = deal(1);
@@ -876,12 +882,12 @@ if Crop
 	T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
 	warning('on',id)
 	% check if extraction worked and reduce distance
-	if ssim(T_extracted,T) < 0.5 
+	if ssim(T_extracted,T) < 0.55 
 		disp('Block not detected Reducing maximum distance.')
 		D = matchedI.Location - matchedT.Location(:,2);
 		D = hypot(D(:,1),D(:,2));
 		MaxD = max(D);
-		while ssim(T_extracted,T) < 0.5 
+		while ssim(T_extracted,T) < 0.55 
 			warning('off',id)
 			[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
 			T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -896,7 +902,7 @@ if Crop
 	end
 
 	% rotate and try again
-	if ssim(T_extracted,T) < 0.5 
+	if ssim(T_extracted,T) < 0.55 
 		disp('Block not detected. Rotating')
 		T = imrotate(T,180);
 		ptsT = detectSURFFeatures(rgb2gray(T));
@@ -914,12 +920,12 @@ if Crop
 		warning('on',id)
 
 		% check if extraction worked and reduce distance
-		if ssim(T_extracted,T) < 0.5 
+		if ssim(T_extracted,T) < 0.55 
 			disp('Block not detected Reducing maximum distance.')
 			D = matchedI.Location - matchedT.Location(:,2);
 			D = hypot(D(:,1),D(:,2));
 			MaxD = max(D);
-			while ssim(T_extracted,T) < 0.5
+			while ssim(T_extracted,T) < 0.55
 				warning('off',id)
 				[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
 				T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -933,7 +939,7 @@ if Crop
 			end
 		end
 	end
-	if ssim(T_extracted,T) < 0.5
+	if ssim(T_extracted,T) < 0.55
 		if Crop == 2
 			Crop = 0;
 			warning('Also failed to find block. Not cropping image')
@@ -955,6 +961,12 @@ if Crop == 1 || Crop ==  3
 	warning('on',id)
 	ScaleRight = round(abs(TformScaleinv.A(1,3)));
 	ScaleEdge = round(abs(TformScaleinv.A(2,3)));
+
+	% final check for invalid scale detection
+	if ScaleEdge < 1
+		disp(['Core top crop pixel location = ' num2str(ScaleEdge)])
+		Crop = 2;
+	end
 
 	% Check block rotation
 	if abs(TformBlock.RotationAngle) > 90
