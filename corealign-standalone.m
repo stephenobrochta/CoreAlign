@@ -117,7 +117,6 @@ p.CaseSensitive = false;
 Alt = 0;
 Color = 1;
 Tilt = 1;
-Fig = 0;
 Crop = 0;
 Spos = 'top';
 ChartNum = 0;
@@ -125,7 +124,6 @@ ChartNum = 0;
 addParameter(p,'alt',Alt,@isnumeric);
 addParameter(p,'color',Color,@isnumeric);
 addParameter(p,'tilt',Tilt,@isnumeric);
-addParameter(p,'fig',Fig,@isnumeric);
 addParameter(p,'crop',Crop,@isnumeric);
 addParameter(p,'spos',Spos,@ischar);
 addParameter(p,'chartnum',ChartNum,@isnumeric);
@@ -134,7 +132,6 @@ parse(p,varargin{:});
 Alt = p.Results.alt;
 Color = p.Results.color;
 Tilt = p.Results.tilt;
-Fig = p.Results.fig;
 Crop = p.Results.crop;
 Spos = p.Results.spos;
 ChartNum = p.Results.chartnum;
@@ -357,46 +354,6 @@ end
 % 3 Detect SURF points, perform tilt correction, and calculate translation distances
 
 
-if Fig
-	scrnsze = get(0,'MonitorPositions');
-	axisargs = {'tickdir','out','color','none','box','on'};
-	figure('position',scrnsze(1,:),'color','k')
-	drawnow
-	scrnsze = get(gcf,'position');
-	if Color
-		h_img = scrnsze(4) * .6;
-		h_chart = scrnsze(4) * .2;
-		w_chart = h_chart * (size(Charts{1},2) / size(Charts{1},1));
-		b_chart = h_img + scrnsze(4) * .1;
-	else
-		h_img = scrnsze(4);
-	end
-	w_img = h_img * (size(imgs{1},2) / size(imgs{1},1));
-	if Color
-		l_chart = (w_img - w_chart) / 2;
-	end
-
-	% graph dimensions based on specified options
-	b = scrnsze(4) * 0.05;
-	l = (w_img * 2) * 1.075;
-	if sum([Tilt Color]) 
-		% three columns of figures
-		w = (scrnsze(3) - l) * 0.3;
-	else
-		% one column and three row of figures for moving points only
-		w = (scrnsze(3) - l) * 0.9;
-		h = scrnsze(4) * 0.25;
-	end
-	if sum([Tilt Color]) == 2
-		% three rows of figures
-		h = scrnsze(4) * 0.25;
-	elseif sum([Tilt Color]) == 1
-		% two rows of figures
-		h = scrnsze(4) * 0.4;
-	end
-
-end
-
 disp('Detecting, extracting and matching features between image pairs')
 for i = 1:numImages - 1
 	[matchedPoints1_moving{i}, ...
@@ -487,260 +444,7 @@ for i = 1:numImages - 1
 	disp(['     Moving SURF point number: ' num2str(matchedPoints1_moving_culled{i}.Count) ])
 	disp(['     ' fnams{i + 1} ' Distance from ' fnams{i} ': ' num2str(xdist(i)) ' (x), ' ...
 	num2str(ydist(i)) ' (y) pixels'])
-	
-	if Fig
-		% calculate angles
-		x1_m = UV1{i}(:,1);
-		y1_m = UV1{i}(:,2);
-		x2_m = UV2{i}(:,1);
-		y2_m = UV2{i}(:,2);
-		
-		x1_s = matchedPoints1_static_culled{i}.Location(:,1);
-		y1_s = matchedPoints1_static_culled{i}.Location(:,2);
-		x2_s = matchedPoints2_static_culled{i}.Location(:,1);
-		y2_s = matchedPoints2_static_culled{i}.Location(:,2);
-		
-		angles_m = atan2d(y2_m - y1_m, x2_m - x1_m);
-		angles_s = atan2d(y2_s - y1_s, x2_s - x1_s);	
-
-		% image 1
-		if exist('H1','var')
-			delete(H1)
-		end
-		H1 = axes('units','pixels','position',[1, b, w_img, h_img]);
-		image(imgs{i})
-		hold(gca,'on')
-		scatter(UV1{i}(:,1),UV1{i}(:,2),'markeredgecolor','r')
-		if Tilt
-			scatter(matchedPoints1_static_culled{i}.Location(:,1),matchedPoints1_static_culled{i}.Location(:,2),'markeredgecolor','c')
-		end
-		set(H1,axisargs{:},'xtick',[],'ytick',[],'ydir','reverse','xcolor','w','ycolor','w')
-		title(strrep(fnams{i},'_','-'),'color','w')
-		drawnow
-		
-		% chart 1
-		if Color
-			if exist('H2','var')
-				delete(H2)
-			end
-			H2 = axes('units','pixels','position',[l_chart, b_chart, w_chart, h_chart]);
-			imshow(Charts{i})
-			title([strrep(fnams{i},'_','-') ' Color Chart'],'color','w')
-			drawnow
-		end
-
-		% image 2
-		if exist('H3','var')
-			delete(H3)
-		end
-		H3 = axes('units','pixels','position',[1 + w_img, b, w_img, h_img]);
-		image(imgs{i + 1})
-		set(H3,axisargs{:},'xtick',[],'ytick',[],'ydir','reverse','xcolor','w','ycolor','w')
-		hold(gca,'on')
-		scatter(UV2{i}(:,1),UV2{i}(:,2),'markeredgecolor','r')
-		if Tilt
-			scatter(matchedPoints1_static_culled{i}.Location(:,1),matchedPoints1_static_culled{i}.Location(:,2),'markeredgecolor','c')
-		end
-		title(strrep(fnams{i + 1},'_','-'),'color','w')
-		drawnow
-		
-		% chart 2
-		if Color
-			if exist('H4','var')
-				delete(H4)
-			end
-			H4 = axes('units','pixels','position',[l_chart + w_img, b_chart, w_chart, h_chart]);
-			imshow(Charts{i + 1})
-			title([strrep(fnams{i + 1},'_','-') ' Color Chart'],'color','w')
-			drawnow
-		end
-
-		% lines connecting SURF points
-		if exist('Himages','var')
-			delete(Himages)
-		end
-		Himages = axes('units','pixels','position',[1, b, 2 * w_img, h_img]);
-		hold(Himages,'on')
-		for j = 1:length(x1_m)
-			line([x1_m(j), x2_m(j) + size(imgs{i},2)],[y1_m(j), y2_m(j)],'color',[1,.75,.75])
-		end
-		if Tilt
-			for j = 1:length(x1_s)
-				line([x1_s(j), x2_s(j) + size(imgs{i},2)],[y1_s(j), y2_s(j)],'color',[.75,.75,1])
-			end
-		end
-		set(Himages,axisargs{:},'xtick',[],'ytick',[],'ydir','reverse','xcolor','w','ycolor','w','xlim',[1 2 * size(imgs{i},2)],'ylim',[1 size(imgs{i},1)])
-		axis off
-		drawnow
-
-		% Moving points X dist
-		if exist('H5','var')
-			delete(H5)
-		end
-		H5 = axes('units','pixels','position',[l, b, w, h]);
-		hold(H5,'on')
-		stairs(2:i+1,xdist(1:i),'-or','linewidth',1)
-		set(H5,axisargs{:},'xtick',2:numImages,'xlim',[2 numImages],'xcolor','w','ycolor','w')
-		title('Translation horizontal distance','color','w')
-		ylabel('Pixels')
-		xlabel('Image Number')
-		drawnow
-		TickLength = get(H5,'TickLength');
-
-		% Moving points Y dist
-		if exist('H6','var')
-			delete(H6)
-		end
-		if sum([Tilt Color]) 
-			H6 = axes('units','pixels','position',[l + w, b, w, h]);
-		else
-			H6 = axes('units','pixels','position',[l, b + h * 1.2, w, h]);
-		end
-		hold(H6,'on')
-		stairs(2:i+1,ydist(1:i),'-or','linewidth',1)
-		set(H6,axisargs{:},'xtick',2:numImages,'xlim',[2 numImages],'xcolor','w','ycolor','w')
-		if sum([Tilt Color])
-			set(gca,'yaxislocation','right')
-		end
-		title('Translation vertical distance','color','w')
-		ylabel('Pixels')
-		if sum([Tilt Color])
-			xlabel('Image Number')
-		end
-		drawnow
-
-		% Moving points angle
-		if exist('H7','var')
-			delete(H7)
-		end
-		if sum([Tilt Color]) 
-			axes('units','pixels','position',[l + 2.25 * w, b, w, h]);
-		else
-			axes('units','pixels','position',[l, 2 * (b + h) * 1.1, w, h]);
-		end
-		polarhistogram(deg2rad(abs(angles_m)),'facecolor','r','facealpha',1,'edgecolor','r');
-		H7 = gca;
-		set(H7,axisargs{:})
-		H7.RColor = 'w';
-		H7.GridColor = 'w';
-		H7.GridAlpha = 1;
-		H7.ThetaColor = 'w';
-		title('Translation Angle','color','w')
-		drawnow
-		
-		if Tilt		
-			% Static points X dist
-			if exist('H8','var')
-				delete(H8)
-			end
-			H8 = axes('units','pixels','position',[l, b + h * 1.2, w, h]);
-			hold(H8,'on')
-			stairs(2:i+1,distance_x_med_s(1:i),'-oc','linewidth',1)
-			set(H8,axisargs{:},'xtick',2:numImages,'xlim',[2 numImages],'xcolor','w','ycolor','w')
-			title('Tilt-correction horizontal distance','color','w')
-			ylabel('Pixels')
-			drawnow
-	
-			% Staic points Y dist
-			if exist('H9','var')
-				delete(H9)
-			end
-			H9 = axes('units','pixels','position',[l + w, b + h * 1.2, w, h]);
-			hold(H9,'on')
-			stairs(2:i+1,distance_y_med_s(1:i),'-oc','linewidth',1)
-			set(H9,axisargs{:},'xtick',2:numImages,'xlim',[2 numImages],'yaxislocation','right','xcolor','w','ycolor','w')
-			title('Tilt-correction vertical distance','color','w')
-			ylabel('Pixels')
-			drawnow
-
-			% Static points angle
-			if exist('H10','var')
-				delete(H10)
-			end
-			axes('units','pixels','position',[l + 2.25 * w, b + h * 1.2, w, h]);
-			polarhistogram(deg2rad(angles_s),'facecolor','c','facealpha',1,'edgecolor','c');
-			H10 = gca;
-			set(H10,axisargs{:})
-			H10.RColor = 'w';
-			H10.GridColor = 'w';
-			H10.GridAlpha = 1;
-			H10.ThetaColor = 'w';
-			title('Tilt Angle','color','w')
-			drawnow
-		end
-
-		if Color
-			if exist('H11','var')
-				delete(H11)
-			end
-			if Tilt
-				H11 = axes('units','pixels','position',[l, 2 * (b + h) * 1.2, 2 * w, h]);
-			else
-				H11 = axes('units','pixels','position',[l, (b + h) * 1.2, (scrnsze(3) - l) * 0.9, h]);
-			end
-			hold(gca,'on')
-			stairs(RGB(1:i,1),'-or','linewidth',1)
-			stairs(RGB(1:i,2),'-og','linewidth',1)
-			stairs(RGB(1:i,3),'-oc','linewidth',1)
-			set(H11,axisargs{:},'xtick',1:numImages,'xlim',[1 numImages],'ticklength',TickLength,'xcolor','w','ycolor','w')
-			title('Chart color values','color','w')
-			ylabel('Color')
-			drawnow
-
-			% histogram
-			if exist('H12','var')
-				delete(H12)
-			end
-			if Tilt
-				H12 = axes('units','pixels','position',[l + 2.2 * w, 2 * (b + h) * 1.2, w, h]);
-			else
-				H12 = axes('units','pixels','position',[l + 2.2 * w, (b + h) * 1.2, w, h]);
-			end
-			histogram(Charts{i}(:),'facecolor','c','edgecolor','w')
-			set(H12,axisargs{:},'ticklength',TickLength,'xcolor','w','ycolor','w')
-			axis tight
-			title([strrep(fnams{i},'_','-') ' Color Chart'],'color','w')
-			drawnow
-
-			if i == numImages - 1
-				delete(H11)
-				if Tilt
-					H11 = axes('units','pixels','position',[l, 2 * (b + h) * 1.2, 2 * w, h]);
-				else
-					H11 = axes('units','pixels','position',[l, (b + h) * 1.2, (scrnsze(3) - l) * 0.9, h]);
-				end
-				hold(gca,'on')
-				stairs(RGB(:,1),'-or')
-				stairs(RGB(:,2),'-og')
-				stairs(RGB(:,3),'-oc')
-				set(H11,axisargs{:},'xtick',1:numImages,'xlim',[1 numImages],'ticklength',TickLength,'xcolor','w','ycolor','w')
-				title('Chart color values','color','w')
-				ylabel('Color')
-				line([chrt_index chrt_index],ylim,'linewidth',1,'color','w')
-				line(xlim,[RGB(chrt_index,1) RGB(chrt_index,1)],'linewidth',1,'color',[1,.8,.8])
-				line(xlim,[RGB(chrt_index,2) RGB(chrt_index,2)],'linewidth',1,'color',[.8,1,.8])
-				line(xlim,[RGB(chrt_index,3) RGB(chrt_index,3)],'linewidth',1,'color',[.8,.8,1])
-				drawnow
-
-				% histogram
-				if exist('H12','var')
-					delete(H12)
-				end
-				if Tilt
-					H12 = axes('units','pixels','position',[l + 2.2 * w, 2 * (b + h) * 1.2, w, h]);
-				else
-					H12 = axes('units','pixels','position',[l + 2.2 * w, (b + h) * 1.2, w, h]);
-				end
-				histogram(Charts{i + 1}(:),'facecolor','c','edgecolor','w')
-				set(H12,axisargs{:},'ticklength',TickLength,'xcolor','w','ycolor','w')
-				axis tight
-				title([strrep(fnams{i + 1},'_','-') ' Color Chart'],'color','w')
-				drawnow
-			end
-		end
-	end
 end
-
 
 % 4. Apply the color correction after detecing all SURF points for reproducibility
 
@@ -1038,7 +742,7 @@ if Crop == 1
 		end
 		CoreLength = max(index) / 200;
 		disp(['Estimated core length: ' num2str(CoreLength) ' cm'])
-		varargout = {array2table([CoreLength,ScaleEdge,ScaleRight,CoreBottom],'VariableNames',{'Length','Top','Edge','Bottom'})};	
+		varargout = {[CoreLength,ScaleEdge,ScaleRight,CoreBottom]};	
 	end
 end
 
@@ -1060,13 +764,7 @@ if Failed > 0
 	disp(cmdstr)
 end
 
-if Fig
-	figure
-	imshow(P)
-	if Crop
-		figure
-		imshow(Pcrop)
-	end
-end
+[~,fnam] = fileparts(folder);
+imwrite(P,[fnam '.jpg'])
 
 toc
