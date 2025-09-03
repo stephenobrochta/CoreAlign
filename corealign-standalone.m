@@ -16,6 +16,11 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % ================================
 % 'folder' | string containing folder name with image sequence (uint8 or uint16).
 %
+% Optional INPUT VARIABLES
+% ================================
+
+% CoreDims | table containing cropping pixel locations and estimated core length
+
 % OUTPUT VARIABLES
 % ================================
 % 'P' | Panorama of aligned images as either uint8 or uint16 depending on input images.
@@ -68,7 +73,7 @@ function [P,Pcrop,imgs,Charts,Scale_extracted,varargout] = corealign(folder,vara
 % NOTE: the input parameter 'MaximumDistance' needs to be specified or the geometric transformation 
 % will likely fail because individual tick marks all contain similar features. Small changes to the
 % maximum distance yield slightly different results.
-% VARARGOUT returns an 1x4 array with:
+% VARARGOUT returns an 1x4 table with:
 % 1) estimated core length (cm)
 % 2) estimate core right/left crop pixel
 % 3) estimated core top crop pixel
@@ -121,12 +126,12 @@ Crop = 0;
 Spos = 'top';
 ChartNum = 0;
 
-addParameter(p,'alt',Alt,@isnumeric);
-addParameter(p,'color',Color,@isnumeric);
-addParameter(p,'tilt',Tilt,@isnumeric);
-addParameter(p,'crop',Crop,@isnumeric);
-addParameter(p,'spos',Spos,@ischar);
-addParameter(p,'chartnum',ChartNum,@isnumeric);
+addParameter(p,'alt',Alt);
+addParameter(p,'color',Color);
+addParameter(p,'tilt',Tilt);
+addParameter(p,'crop',Crop);
+addParameter(p,'spos',Spos);
+addParameter(p,'chartnum',ChartNum);
 
 parse(p,varargin{:});
 Alt = p.Results.alt;
@@ -135,6 +140,23 @@ Tilt = p.Results.tilt;
 Crop = p.Results.crop;
 Spos = p.Results.spos;
 ChartNum = p.Results.chartnum;
+
+% numbers are passed as strings
+if ischar(Alt)
+	Alt = str2double(Alt);
+end
+if ischar(Color)
+	Color = str2double(Color);
+end
+if ischar(Tilt)
+	Tilt = str2double(Tilt);
+end
+if ischar(Crop)
+	Crop = str2double(Crop);
+end
+if ischar(ChartNum)
+	ChartNum = str2double(ChartNum);
+end
 
 % alternate method not needed if no tilt correction
 if Tilt == 0
@@ -354,6 +376,7 @@ end
 % 3 Detect SURF points, perform tilt correction, and calculate translation distances
 
 
+
 disp('Detecting, extracting and matching features between image pairs')
 for i = 1:numImages - 1
 	[matchedPoints1_moving{i}, ...
@@ -444,7 +467,10 @@ for i = 1:numImages - 1
 	disp(['     Moving SURF point number: ' num2str(matchedPoints1_moving_culled{i}.Count) ])
 	disp(['     ' fnams{i + 1} ' Distance from ' fnams{i} ': ' num2str(xdist(i)) ' (x), ' ...
 	num2str(ydist(i)) ' (y) pixels'])
+	
+
 end
+
 
 % 4. Apply the color correction after detecing all SURF points for reproducibility
 
@@ -537,12 +563,12 @@ if Crop
 	S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
 	warning('on',id)
 	% check if extraction worked and reduce distance
-	if ssim(S_extracted,S) < 0.5 
+	if ssim(S_extracted,S) < 0.55 
 		disp('Zero point not detected Reducing maximum distance.')
 		D = matchedI.Location - matchedS.Location(:,2);
 		D = hypot(D(:,1),D(:,2));
 		MaxD = max(D);
-		while ssim(S_extracted,S) < 0.5
+		while ssim(S_extracted,S) < 0.55
 			warning('off',id)
 			[TformScale,~,~] = estgeotform2d(matchedI,matchedS,'similarity','MaxD',MaxD);
 			S_extracted = imwarp(imgs{1},TformScale,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -555,7 +581,8 @@ if Crop
 			end
 		end
 	end
-	if ssim(S_extracted,S) < 0.5
+	
+	if ssim(S_extracted,S) < 0.55
 		Crop = 2;
 		warning('Failed to detect zero point. Cannot crop composite image to core top')
 		[ScaleRight,ScaleEdge] = deal(1);
@@ -580,12 +607,12 @@ if Crop
 	T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
 	warning('on',id)
 	% check if extraction worked and reduce distance
-	if ssim(T_extracted,T) < 0.5 
+	if ssim(T_extracted,T) < 0.55 
 		disp('Block not detected Reducing maximum distance.')
 		D = matchedI.Location - matchedT.Location(:,2);
 		D = hypot(D(:,1),D(:,2));
 		MaxD = max(D);
-		while ssim(T_extracted,T) < 0.5 
+		while ssim(T_extracted,T) < 0.55 
 			warning('off',id)
 			[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
 			T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -600,7 +627,7 @@ if Crop
 	end
 
 	% rotate and try again
-	if ssim(T_extracted,T) < 0.5 
+	if ssim(T_extracted,T) < 0.55 
 		disp('Block not detected. Rotating')
 		T = imrotate(T,180);
 		ptsT = detectSURFFeatures(rgb2gray(T));
@@ -618,12 +645,12 @@ if Crop
 		warning('on',id)
 
 		% check if extraction worked and reduce distance
-		if ssim(T_extracted,T) < 0.5 
+		if ssim(T_extracted,T) < 0.55 
 			disp('Block not detected Reducing maximum distance.')
 			D = matchedI.Location - matchedT.Location(:,2);
 			D = hypot(D(:,1),D(:,2));
 			MaxD = max(D);
-			while ssim(T_extracted,T) < 0.5
+			while ssim(T_extracted,T) < 0.55
 				warning('off',id)
 				[TformBlock,~,~] = estgeotform2d(matchedI,matchedT,'similarity','MaxD',MaxD);
 				T_extracted = imwarp(imgs{end},TformBlock,'OutputView',outputView,'fillvalues',[0,0,0]);
@@ -637,29 +664,40 @@ if Crop
 			end
 		end
 	end
-	if ssim(T_extracted,T) < 0.5
+	if ssim(T_extracted,T) < 0.55
 		if Crop == 2
 			Crop = 0;
 			warning('Also failed to find block. Not cropping image')
 		else
 			Crop = 3;
 			warning('Failed to find core bottom. Cannot crop composite image to core bottom')
-			CoreBottom = NaN;
+			CoreBottom = size(imgs{end},2);
 		end
 		Failed = Failed + 1;
 	end
 end
 
-% If core top and bottom were detected set indices in first and last image
-if Crop == 1 || Crop ==  3
+% If core top was detected set indices in first image
+if Crop == 1 || Crop == 3
 	% transform matrix is relative to last image after slight rotation etc to match template
 	warning('off',id)
-	TformBlockinv = invert(TformBlock);
 	TformScaleinv = invert(TformScale);
 	warning('on',id)
 	ScaleRight = round(abs(TformScaleinv.A(1,3)));
 	ScaleEdge = round(abs(TformScaleinv.A(2,3)));
 
+	% final check for invalid scale detection
+	if ScaleEdge < 1
+		disp(['Core top crop pixel location = ' num2str(ScaleEdge)])
+		Crop = 2;
+	end
+end
+
+% If bottom was detected
+if Crop == 1 || Crop == 2
+	warning('off',id)
+	TformBlockinv = invert(TformBlock);
+	warning('on',id)
 	% Check block rotation
 	if abs(TformBlock.RotationAngle) > 90
 		% Block was rotated to match template so position is right side. Subtract template width
@@ -742,7 +780,7 @@ if Crop == 1
 		end
 		CoreLength = max(index) / 200;
 		disp(['Estimated core length: ' num2str(CoreLength) ' cm'])
-		varargout = {[CoreLength,ScaleEdge,ScaleRight,CoreBottom]};	
+		varargout = {array2table([CoreLength,ScaleEdge,ScaleRight,CoreBottom],'VariableNames',{'Length','Top','Edge','Bottom'})};	
 	end
 end
 
@@ -764,7 +802,9 @@ if Failed > 0
 	disp(cmdstr)
 end
 
+toc
 [~,fnam] = fileparts(folder);
 imwrite(P,[fnam '.jpg'])
-
-toc
+if ~isempty(Pcrop)
+	imwrite(Pcrop,[fnam '_crop.jpg'])
+end

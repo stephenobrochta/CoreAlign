@@ -1,0 +1,136 @@
+<deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
+  <configuration build-checksum="717934860" file="/Users/steveo/Documents/MATLAB/CoreAlign/corealign.prj" location="/Users/steveo/Documents/MATLAB/CoreAlign" name="corealign" preferred-package-location="/Users/steveo/Documents/MATLAB/CoreAlign/corealign/for_redistribution" preferred-package-type="package.type.app" target="target.ezdeploy.standalone" target-name="Application Compiler">
+    <param.appname>corealign</param.appname>
+    <param.icon />
+    <param.icons />
+    <param.version>1.0</param.version>
+    <param.authnamewatermark>Stephen Obrochta</param.authnamewatermark>
+    <param.email>obrochta@gipc.akita-u.a.cjp</param.email>
+    <param.company>Akita University</param.company>
+    <param.summary>Standalone application</param.summary>
+    <param.description />
+    <param.screenshot>/Users/steveo/Desktop/namahage.png</param.screenshot>
+    <param.guid />
+    <param.installpath.string>/Akita_University/corealign/</param.installpath.string>
+    <param.installpath.combo>option.installpath.systemwideapp</param.installpath.combo>
+    <param.logo />
+    <param.install.notes />
+    <param.target.install.notes>In the following directions, replace MR/R2024b by the directory on the target machine where MATLAB is installed, or MR by the directory where the MATLAB Runtime is installed.
+
+If the environment variable DYLD_LIBRARY_PATH is undefined, set it to the following string:
+
+MR/R2024b/runtime/maca64:MR/R2024b/sys/os/maca64:MR/R2024b/bin/maca64
+
+If it is defined, set it to the following:
+
+${DYLD_LIBRARY_PATH}:MR/R2024b/runtime/maca64:MR/R2024b/sys/os/maca64:MR/R2024b/bin/maca64</param.target.install.notes>
+    <param.intermediate>${PROJECT_ROOT}/corealign/for_testing</param.intermediate>
+    <param.files.only>${PROJECT_ROOT}/corealign/for_redistribution_files_only</param.files.only>
+    <param.output>${PROJECT_ROOT}/corealign/for_redistribution</param.output>
+    <param.logdir>${PROJECT_ROOT}/corealign</param.logdir>
+    <param.enable.clean.build>false</param.enable.clean.build>
+    <param.user.defined.mcr.options />
+    <param.target.type>subtarget.standalone</param.target.type>
+    <param.support.packages />
+    <param.web.mcr>true</param.web.mcr>
+    <param.package.mcr>false</param.package.mcr>
+    <param.no.mcr>false</param.no.mcr>
+    <param.web.mcr.name>MyAppInstaller_web</param.web.mcr.name>
+    <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
+    <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
+    <param.windows.command.prompt>false</param.windows.command.prompt>
+    <param.create.log>false</param.create.log>
+    <param.log.file />
+    <param.native.matlab>false</param.native.matlab>
+    <param.checkbox>false</param.checkbox>
+    <param.example />
+    <param.help.text>Syntax 
+	 corealign -? 
+	 corealign folder varargin 
+ Input Arguments 
+	 -?  print help on how to use the application 
+	 folder varargin  input arguments</param.help.text>
+    <unset>
+      <param.icon />
+      <param.icons />
+      <param.version />
+      <param.description />
+      <param.guid />
+      <param.installpath.string />
+      <param.installpath.combo />
+      <param.logo />
+      <param.install.notes />
+      <param.intermediate />
+      <param.files.only />
+      <param.output />
+      <param.logdir />
+      <param.enable.clean.build />
+      <param.user.defined.mcr.options />
+      <param.target.type />
+      <param.support.packages />
+      <param.web.mcr />
+      <param.package.mcr />
+      <param.no.mcr />
+      <param.web.mcr.name />
+      <param.package.mcr.name />
+      <param.no.mcr.name />
+      <param.windows.command.prompt />
+      <param.create.log />
+      <param.log.file />
+      <param.native.matlab />
+      <param.checkbox />
+      <param.example />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}/corealign.m</file>
+    </fileset.main>
+    <fileset.resources>
+      <file>${PROJECT_ROOT}/private</file>
+    </fileset.resources>
+    <fileset.package />
+    <fileset.depfun>
+      <file>${PROJECT_ROOT}/getStaticMovingSURF.m</file>
+      <file>${PROJECT_ROOT}/removeOutlyingAngles.m</file>
+      <file>${PROJECT_ROOT}/removeOutlyingMatches.m</file>
+    </fileset.depfun>
+    <build-deliverables>
+      <file location="${PROJECT_ROOT}/corealign/for_testing" name="readme.txt" optional="true">/Users/steveo/Documents/MATLAB/CoreAlign/corealign/for_testing/readme.txt</file>
+      <file location="${PROJECT_ROOT}/corealign/for_testing" name="splash.png" optional="false">/Users/steveo/Documents/MATLAB/CoreAlign/corealign/for_testing/splash.png</file>
+      <file location="${PROJECT_ROOT}/corealign/for_testing" name="run_corealign.sh" optional="false">/Users/steveo/Documents/MATLAB/CoreAlign/corealign/for_testing/run_corealign.sh</file>
+      <file location="${PROJECT_ROOT}/corealign/for_testing" name="corealign.app" optional="false">/Users/steveo/Documents/MATLAB/CoreAlign/corealign/for_testing/corealign.app</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>/Applications/MATLAB_R2024b.app</root>
+      <toolboxes>
+        <toolbox name="matlabcoder" />
+        <toolbox name="neuralnetwork" />
+      </toolboxes>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+      <toolbox>
+        <neuralnetwork>
+          <enabled>true</enabled>
+        </neuralnetwork>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>true</unix>
+      <mac>true</mac>
+      <windows>false</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>15.6.1</osver>
+      <os32>true</os32>
+      <os64>false</os64>
+      <arch>maci64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>

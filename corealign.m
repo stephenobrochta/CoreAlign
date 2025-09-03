@@ -856,7 +856,7 @@ if Crop
 			end
 		end
 	end
-	imshow(S_extracted), pause
+	
 	if ssim(S_extracted,S) < 0.55
 		Crop = 2;
 		warning('Failed to detect zero point. Cannot crop composite image to core top')
@@ -946,17 +946,16 @@ if Crop
 		else
 			Crop = 3;
 			warning('Failed to find core bottom. Cannot crop composite image to core bottom')
-			CoreBottom = NaN;
+			CoreBottom = size(imgs{end},2);
 		end
 		Failed = Failed + 1;
 	end
 end
 
-% If core top and bottom were detected set indices in first and last image
-if Crop == 1 || Crop ==  3
+% If core top was detected set indices in first image
+if Crop == 1 || Crop == 3
 	% transform matrix is relative to last image after slight rotation etc to match template
 	warning('off',id)
-	TformBlockinv = invert(TformBlock);
 	TformScaleinv = invert(TformScale);
 	warning('on',id)
 	ScaleRight = round(abs(TformScaleinv.A(1,3)));
@@ -967,7 +966,13 @@ if Crop == 1 || Crop ==  3
 		disp(['Core top crop pixel location = ' num2str(ScaleEdge)])
 		Crop = 2;
 	end
+end
 
+% If bottom was detected
+if Crop == 1 || Crop == 2
+	warning('off',id)
+	TformBlockinv = invert(TformBlock);
+	warning('on',id)
 	% Check block rotation
 	if abs(TformBlock.RotationAngle) > 90
 		% Block was rotated to match template so position is right side. Subtract template width
